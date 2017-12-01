@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    
+    <link rel="stylesheet" href="https://ssl.gstatic.com/docs/script/css/add-ons1.css">
+
+    <script>
+    //console.log("first line of script");
+    function collectEmailOptions() {
+      //console.log("**** running collectEmailOptions()");
+      document.getElementById("button1id").disabled = true;
+      document.getElementById("button2id").disabled = true;
+      var isTruckSchedulingNeeded = "";
+      if(document.getElementById("isTruckSchedulingNeededYes").checked) {
+        isTruckSchedulingNeeded = "Yes";
+      } else {
+        isTruckSchedulingNeeded = "No";
+      }
+      var traderNotes = document.getElementById("traderNotesTextarea").value;
+      //console.log("isTruckSchedulingNeeded = " + isTruckSchedulingNeeded);
+      //console.log("traderNotes = " + traderNotes);
+      //console.log("**** about to run readyToSendEmail()");
+      google.script.run.withFailureHandler(onFailure).readyToSendEmail(isTruckSchedulingNeeded, traderNotes);
+      google.script.host.close();
+    }
+    function prepToCancelSendEmail() {
+      document.getElementById("button2id").disabled = true;
+      document.getElementById("button1id").disabled = true;
+      google.script.run.withFailureHandler(onFailure).cancelSendEmail();
+      google.script.host.close();
+    }
+    function onFailure(error) {
+      google.script.host.close();
+      alert("Error sending email.  Error message: " + error.message);
+    }
+    </script> 
+
+  </head>
+  <body>
+    <div class="container">
+      <b>Next, complete info to send confirmation email:</b>
+      <form>    
+        <label>Do you need trucks scheduled for all loads?  Choose no if there are ANY loads in this sync that don't need trucks scheduled and explain in notes below.</label>
+        <br><br>
+        <!-- Radio buttons -->
+        <div>
+          <label for="isTruckSchedulingNeededYes">Yes</label>
+          <input type="radio" id="isTruckSchedulingNeededYes" name="radios" value="Yes" checked>
+        </div>
+        <div>
+          <label for="isTruckSchedulingNeededNo">No</label>
+          <input type="radio" id="isTruckSchedulingNeededYes" name="radios" value="No">
+        </div>
+        <br><br>
+        <!-- Text area -->
+        <div class="form-group">
+          <label for="traderNotesTextarea"><b>Additional notes:</b></label>
+          <textarea id="traderNotesTextarea" name="textarea" rows="4" cols="60" placeholder="Provide any additional notes here ..."></textarea>
+        </div>
+        <br><br>
+        <!-- Submit buttons -->
+        <label for="button1id"><b>Ready to send?</b></label>
+        <br><br>
+        <button class="action" type="button" id="button1id" name="button1" onclick="collectEmailOptions()">Yes, send the email</button>
+        <button type="button" id="button2id" name="button2" onclick="prepToCancelSendEmail()">No, do not send an email</button>   
+      </form>
+    </div>
+ 
+  </body>
+</html>

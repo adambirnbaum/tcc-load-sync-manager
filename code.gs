@@ -1,3 +1,5 @@
+// var isHtmlServiceFinished = false;
+// Logger = BetterLog.useSpreadsheet('13ZlDwJ_o2sRoKyoYRzRwc4CnmheVQMrmk2xftxQjUPY');
 function onInstall(e) {
   onOpen(e);
 }
@@ -27,40 +29,40 @@ function menuItem1() {
   * This is the main function for running most of the sub-functions required to sync Master to TN and Prepay
   *
   *****************************************************************************************************************/
-  
+
   // Logger.log('****************** JUST CLICKED REQUEST TO SYNC ******************');
-  
+
   // Get settings
   var myActiveSpreadsheet = SpreadsheetApp.getActiveSpreadsheet();
 
   myActiveSpreadsheet.toast('Loading settings', 'Loading - 0%');
   var settings = getSettings();
-  
+
   // Pull all source data into memory
   myActiveSpreadsheet.toast('Retrieving data from Master spreadsheet', 'Loading - 25%');
   var allDataFromSource = getAllDataFromSource(settings);
-  
+
   if (allDataFromSource.length == 0) {
     throw 'No rows have been selected to sync';
   }
-  
+
   // COPY START option to move this section back behind user confirmation
   myActiveSpreadsheet.toast('Analyzing data from Trucks Needed spreadsheet', 'Loading - 50%');
   var allDataFromTn = getAllDataFromTn(allDataFromSource, settings);
-  
+
   myActiveSpreadsheet.toast('Analyzing data from Prepay spreadsheet', 'Loading - 75%');
   var allDataFromPrepay = getAllDataFromPrepay(allDataFromSource, settings);
   // COPY END option to move this section back behind user confirmation
-  
+
   // Confirm with user they would like to go forward with sync
   myActiveSpreadsheet.toast('Loading complete.  Ready to sync', 'Loading - 100%');
   var ui = SpreadsheetApp.getUi();
   var result = ui.alert(
-     'From the ' + myActiveSpreadsheet.getName() + ' sheet, ' + allDataFromSource.objectRowsDataReadyToSyncToTn.length + ' rows will be synced to Trucks Needed,\nof which ' + 
+     'From the ' + myActiveSpreadsheet.getName() + ' sheet, ' + allDataFromSource.objectRowsDataReadyToSyncToTn.length + ' rows will be synced to Trucks Needed,\nof which ' +
      allDataFromSource.objectRowsDataReadyToSyncToPrepay.length + ' rows will be synced to Prepay.',
      'Are you sure you want to continue with the sync?',
      ui.ButtonSet.YES_NO);
-  
+
   // Process the user's response.
   if (result == ui.Button.YES) {
     // User clicked "Yes"
@@ -68,24 +70,24 @@ function menuItem1() {
     myActiveSpreadsheet.toast('Locking script to prevent simultaneous use', 'Status');
     var lock = LockService.getScriptLock();
     lock.waitLock(10000);   // Wait for up to 10 seconds to acquire lock
-    
+
     // OPTIONAL - THIS IS WHERE FUNCTIONS UP ABOVE BETWEEN COPY START AND COPY END COULD BE PASTED
-    
+
     myActiveSpreadsheet.toast('Syncing selected rows from Master to Trucks Needed/Prepay', 'Status');
     var rowsCopiedForTN = syncSourceToTn(allDataFromSource, allDataFromTn, settings);
     var rowsCopiedForPrepay = syncSourceToPrepay(allDataFromSource, allDataFromPrepay, settings);
     lock.releaseLock();
-    
+
     // Collect info to send confirmation email
     prepToSendConfirmationEmail(rowsCopiedForTN, rowsCopiedForPrepay, ui);
-    
-    
+
+
     /*
     var wait = 0;
     var timebetween = 500;                        // 0.5 seconds
     var timeout = 120000;                         // 2 minutes
     while (isHtmlServiceFinished == false) {
-      Utilities.sleep(timebetween);    
+      Utilities.sleep(timebetween);
       wait += timebetween;
       if (wait >= timeout) {
         //Logger.log('ERROR: timed out after ' + timeout.toString() + ' seconds.');
@@ -95,12 +97,12 @@ function menuItem1() {
 
     //Logger.log("HTML service just finished");
     */
-    
-    // If html modal is submitted successfully, it will call function readyToSendEmail()  
+
+    // If html modal is submitted successfully, it will call function readyToSendEmail()
     // If html modal cancel button is selected, it will call function cancelSendEmail()
-  
+
   } else {
-    
+
     // User clicked "No" or X in the title bar.
   }
 }
@@ -113,7 +115,7 @@ function prepToSendConfirmationEmail(rowsCopiedForTN, rowsCopiedForPrepay, ui) {
   *****************************************************************************************************************/
   // Logger.log('**** Start prepToSendConfirmationEmail()... ');
   // isHtmlServiceFinished = true;
-  
+
   var html = HtmlService.createHtmlOutputFromFile('confirmation-email-options').setHeight(350);
   ui.showModalDialog(html, 'Success! ' + rowsCopiedForTN + ' rows synced to TN and ' + rowsCopiedForPrepay + ' rows synced to Prepay');
 }
@@ -127,13 +129,13 @@ function readyToSendEmail(isTruckSchedulingNeeded, traderNotes) {
   //Logger.log('**** Start readyToSendEmail()... ');
   // Send confirmation email
   SpreadsheetApp.getActiveSpreadsheet().toast('Sending confirmation email', 'Status');
-  
+
   // >>>> These functions are being run again because they are not passed into this function
   var settings = getSettings();
   var allDataFromSource = getAllDataFromSource(settings);
-  
+
   var emailSent = sendConfirmationEmail(allDataFromSource, settings.trucksNeededUrl, settings.prepayUrl, settings.recipientEmail, settings.traderEmail, isTruckSchedulingNeeded, traderNotes);
-  
+
   // Reset sync column and display success dialogue
   resetSyncToNo(allDataFromSource, settings);
   SpreadsheetApp.flush();
@@ -156,11 +158,11 @@ function cancelSendEmail() {
   SpreadsheetApp.getActiveSpreadsheet().toast('Finishing sync without email send', 'Status');
   var settings = getSettings();
   var allDataFromSource = getAllDataFromSource(settings);
-  
+
   resetSyncToNo(allDataFromSource, settings);
   SpreadsheetApp.flush();
   var ui = SpreadsheetApp.getUi();
-  ui.alert('Sync complete, but no email confirmation was sent.  Review Trucks Needed to ensure loads were synced properly.  If you synced Prepays, review Prepay spreadsheet to add any prepay notes.'); 
+  ui.alert('Sync complete, but no email confirmation was sent.  Review Trucks Needed to ensure loads were synced properly.  If you synced Prepays, review Prepay spreadsheet to add any prepay notes.');
 }
 
 function menuItem2() {
@@ -168,15 +170,15 @@ function menuItem2() {
   *
   * This menu command runs the ship date week of function after getting necessary settings, and displays alert after complete
   *
-  *****************************************************************************************************************/  
+  *****************************************************************************************************************/
 
-  // Confirm with user they would like to update ship date week of function 
+  // Confirm with user they would like to update ship date week of function
   var ui = SpreadsheetApp.getUi();
   var result = ui.alert(
     "Please confirm",
     "Are you sure you want to update the \'Week of Ship Date\' list?",
     ui.ButtonSet.YES_NO);
-  
+
   // Process the user's response.
   if (result == ui.Button.YES) {
     var settings = getSettings();
@@ -193,7 +195,7 @@ function menuItem3() {
   *
   * This menu command runs the reset sync to no function after getting necessary settings, and displays alert after complete
   *
-  *****************************************************************************************************************/  
+  *****************************************************************************************************************/
 
   // Confirm with user they would like to reset the sync column
   var ui = SpreadsheetApp.getUi();
@@ -201,7 +203,7 @@ function menuItem3() {
     "Please confirm",
     "Are you sure you want to reset the \'Ready to Sync\' column to \'No\'?",
      ui.ButtonSet.YES_NO);
-  
+
   // Process the user's response.
   if (result == ui.Button.YES) {
     var settings = getSettings();
@@ -222,28 +224,28 @@ function getSettings() {
   *****************************************************************************************************************/
   // Logger.log('**** Start getSettings() ...');
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Settings");
-  if (sheet == null) {        
+  if (sheet == null) {
       throw 'Error:  The Settings sheet could not be found';
-  } 
+  }
   var data = sheet.getDataRange().getValues();
-  
+
   var traderEmail = data[4][4];
   var recipientEmail = data[5][4];
-  
+
   var sourceHeaderRowNum = data[8][4];
   var sourceStartRowNum = data[9][4];
   var sourceStartColNum = letterToColumn(data[10][4]);
   var sourceEndColNum = letterToColumn(data[11][4]);
-  
+
   var trucksNeededUrl = data[14][4];
-  
+
   var tnHeaderRowNum = data[16][4];
   var tnStartRowNum = data[17][4];
   var tnStartColNum = letterToColumn(data[18][4]);
   var tnEndColNum = letterToColumn(data[19][4]);
-  
+
   var prepayUrl = data[22][4];
-  
+
   var prepayHeaderRowNum = data[24][4];
   var prepayStartRowNum = data[25][4];
   var prepayStartColNum = letterToColumn(data[26][4]);
@@ -252,7 +254,7 @@ function getSettings() {
   var weekOfValidationStartRowNum = data[48][4];
   var weekOfValidationStartColNum = data[49][4];
   var d = new Date();
-  
+
   var traderRequiredColumnsObject = {
     "truckNo" : "Truck NO.",
     "traderName" : "Trader Name",
@@ -295,35 +297,35 @@ function getSettings() {
     "bolSentToAllParties" : "BOL sent to all parties?",
     "bolProduct" : "BOL Product",
     "billingWeights" : "Billing Weights"};
-  
+
   var traderRequiredColumnNames = Object.keys(traderRequiredColumnsObject);
-      
+
   return {traderEmail:traderEmail,
           recipientEmail:recipientEmail,
-          
+
           sourceHeaderRowNum:sourceHeaderRowNum,
           sourceStartRowNum:sourceStartRowNum,
           sourceStartColNum:sourceStartColNum,
           sourceEndColNum:sourceEndColNum,
-          
+
           trucksNeededUrl:trucksNeededUrl,
-          
+
           tnHeaderRowNum:tnHeaderRowNum,
           tnStartRowNum:tnStartRowNum,
           tnStartColNum:tnStartColNum,
           tnEndColNum:tnEndColNum,
-          
+
           prepayUrl:prepayUrl,
-          
+
           prepayHeaderRowNum:prepayHeaderRowNum,
           prepayStartRowNum:prepayStartRowNum,
           prepayStartColNum:prepayStartColNum,
           prepayEndColNum:prepayEndColNum,
-          
+
           weekOfValidationStartRowNum:weekOfValidationStartRowNum,
           weekOfValidationStartColNum:weekOfValidationStartColNum,
           d:d,
-          
+
           traderRequiredColumnsObject:traderRequiredColumnsObject,
           traderRequiredColumnNames:traderRequiredColumnNames};
 }
@@ -331,12 +333,12 @@ function getSettings() {
 function getAllDataFromSource(settings) {
   /****************************************************************************************************************
   *
-  * This function pulls all data from Source into memory.  Additionally, it creates the various arrays  
+  * This function pulls all data from Source into memory.  Additionally, it creates the various arrays
   *        used by other functions
-  * 
+  *
   *****************************************************************************************************************/
-  
-  // Logger.log('**** Start getAllDataFromSource() ...');  
+
+  // Logger.log('**** Start getAllDataFromSource() ...');
   var sourceHeaderNames = [];
   var sourceStartRowNum = settings.sourceStartRowNum;
   var sourceStartColNum = settings.sourceStartColNum;
@@ -345,87 +347,87 @@ function getAllDataFromSource(settings) {
 
   // Pull in all data from Source
   var sheetSource = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
-  if (sheetSource.getName() == "Settings" || sheetSource.getName() == "Master Template TO DUPLICATE") { 
-    throw "Error:  Please open the sheet in Master you would like to sync from"; 
+  if (sheetSource.getName() == "Settings" || sheetSource.getName() == "Master Template TO DUPLICATE") {
+    throw "Error:  Please open the sheet in Master you would like to sync from";
   }
 
   var range = sheetSource.getRange(sourceStartRowNum, sourceStartColNum, sheetSource.getLastRow(), sourceTotalColumns);
   var objectRowsData = getRowsData(sheetSource, range, sourceHeaderRowNum);
-  
+
   var headersRange = sheetSource.getRange(sourceHeaderRowNum, sourceStartColNum, 1, sourceTotalColumns);
   var headers = headersRange.getValues()[0];
   sourceHeaderNames = normalizeHeaders(headers);
-  
+
   // filter to keep only rows that are Ready to Sync
-  var objectRowsDataReadyToSyncToTn = objectRowsData.filter(function(x) { 
-    return x.readyToSync == "Yes"; 
-  }); 
-  
+  var objectRowsDataReadyToSyncToTn = objectRowsData.filter(function(x) {
+    return x.readyToSync == "Yes";
+  });
+
   if (objectRowsDataReadyToSyncToTn.length < 1) {
     throw 'Error: Must select at least one load to sync';
   }
-  
+
   confirmTraderRequiredDataIsComplete(settings.traderRequiredColumnNames, settings.traderRequiredColumnsObject, objectRowsDataReadyToSyncToTn);
-  
+
   for (i = 0; i < objectRowsDataReadyToSyncToTn.length; i++) {
     if ((isValidDate(objectRowsDataReadyToSyncToTn[i]["prepayDateRequestedForVendor"]) && !(isNumber(objectRowsDataReadyToSyncToTn[i]["prepayAmountForVendor"]))) || (!(isValidDate(objectRowsDataReadyToSyncToTn[i]["prepayDateRequestedForVendor"])) && (isNumber(objectRowsDataReadyToSyncToTn[i]["prepayAmountForVendor"])))) {
       throw 'Error: ' + objectRowsDataReadyToSyncToTn[i]["masterRecord"] + ' should have both vendor prepay date and amount, or else enter NA for both.';
     }
   }
-  
+
   var objectRowsDataReadyToSyncToPrepay = objectRowsDataReadyToSyncToTn.filter(function(x) {
     return isValidDate(x.prepayDateRequestedForVendor) && isNumber(x.prepayAmountForVendor);
   });
 
   var weekofShipDatesToSyncToTn = getArrayFromObject(objectRowsDataReadyToSyncToTn, "weekOfShipDate")
   var weekofShipDatesToSyncToPrepay = getArrayFromObject(objectRowsDataReadyToSyncToPrepay, "weekOfShipDate")
-  
+
   var allMasterRecordsInSource = sheetSource.getRange(sourceStartRowNum, sourceStartColNum + sourceHeaderNames.indexOf("masterRecord"), sheetSource.getLastRow(), sourceTotalColumns).getValues().map(function (row) { return row[0]; });
-  
+
   return {objectRowsData:objectRowsData,
           objectRowsDataReadyToSyncToTn:objectRowsDataReadyToSyncToTn,
           objectRowsDataReadyToSyncToPrepay:objectRowsDataReadyToSyncToPrepay,
           weekofShipDatesToSyncToTn:weekofShipDatesToSyncToTn,
           weekofShipDatesToSyncToPrepay:weekofShipDatesToSyncToPrepay,
           sourceHeaderNames:sourceHeaderNames,
-          allMasterRecordsInSource:allMasterRecordsInSource};        
+          allMasterRecordsInSource:allMasterRecordsInSource};
 }
 
 function getAllDataFromTn(allDataFromSource, settings) {
   /****************************************************************************************************************
   *
-  * This function gets object with a key of the sheet name and value of an array of the master IDs on that sheet.     
-  * 
-  *****************************************************************************************************************/ 
+  * This function gets object with a key of the sheet name and value of an array of the master IDs on that sheet.
+  *
+  *****************************************************************************************************************/
   // Logger.log('**** Start getAllDataFromTn ...');
   var tnHeadersNames = {};
   var objectRowsTnData = {};
   var ss = SpreadsheetApp.openByUrl(settings.trucksNeededUrl);
-  
+
   var uniqueWeekofShipDatesToSyncToTn = allDataFromSource.weekofShipDatesToSyncToTn.getUnique();
-  
+
   var tnStartRowNum = settings.tnStartRowNum;
   var tnStartColNum = settings.tnStartColNum;
   var tnTotalColumns = settings.tnEndColNum - tnStartColNum + 1;
   var tnHeaderRowNum = settings.tnHeaderRowNum;
-  
-  if (ss == null) {        // 
+
+  if (ss == null) {        //
       throw 'Error:  Trucks Needed spreadsheet could not be opened.  Check to ensure the right sheet Url is used in Settings tab';
-  } 
+  }
 
   // get object with list of header names for each tab in Tn
   for (i = 0; i < uniqueWeekofShipDatesToSyncToTn.length; i++) {
     var sheet = ss.getSheetByName(uniqueWeekofShipDatesToSyncToTn[i]);
     if (sheet == null) {
       throw 'Error:  The sheet \"' + uniqueWeekofShipDatesToSyncToTn[i] + '\" does not exist in Trucks Needed.';
-    } 
+    }
     var dataRange = sheet.getRange(tnStartRowNum, tnStartColNum, sheet.getLastRow(), tnTotalColumns);
     objectRowsTnData[uniqueWeekofShipDatesToSyncToTn[i]] = getRowsData(sheet, dataRange, tnHeaderRowNum);
-    
+
     var headersRange = sheet.getRange(tnHeaderRowNum, tnStartColNum, 1, tnTotalColumns);
     var headers = headersRange.getValues()[0];
     tnHeadersNames[uniqueWeekofShipDatesToSyncToTn[i]] = normalizeHeaders(headers);
-        
+
     if (tnHeadersNames[uniqueWeekofShipDatesToSyncToTn[i]].indexOf("masterRecord") == -1) {
       throw "Error:  Could not find masterRecord column in the Trucks Needed tab '" + uniqueWeekofShipDatesToSyncToTn[i] + "'";
     }
@@ -437,32 +439,32 @@ function getAllDataFromTn(allDataFromSource, settings) {
 function getAllDataFromPrepay(allDataFromSource, settings) {
   /****************************************************************************************************************
   *
-  * This function gets object with a key of the sheet name and value of an array of the master IDs on that sheet.     
-  * 
+  * This function gets object with a key of the sheet name and value of an array of the master IDs on that sheet.
+  *
   *****************************************************************************************************************/
-  
-  // Logger.log('**** Start getAllDataFromPrepay ...'); 
+
+  // Logger.log('**** Start getAllDataFromPrepay ...');
   var prepayHeadersNames = {};
   var objectRowsPrepayData = {};
   var ss = SpreadsheetApp.openByUrl(settings.prepayUrl);
-  
+
   var uniqueWeekofShipDatesToSyncToPrepay = allDataFromSource.weekofShipDatesToSyncToPrepay.getUnique();
-  
+
   var prepayStartRowNum = settings.prepayStartRowNum;
   var prepayStartColNum = settings.prepayStartColNum;
   var prepayTotalColumns = settings.prepayEndColNum - prepayStartColNum + 1;
   var prepayHeaderRowNum = settings.prepayHeaderRowNum;
-  
-  if (ss == null) {        // 
+
+  if (ss == null) {        //
       throw 'Error:  Prepay spreadsheet could not be opened.  Check to ensure the right sheet Url is used in Settings tab';
-  } 
+  }
 
   // get object with list of header names for each tab in Prepay
   for (i = 0; i < uniqueWeekofShipDatesToSyncToPrepay.length; i++) {
     var sheet = ss.getSheetByName(uniqueWeekofShipDatesToSyncToPrepay[i]);
     if (sheet == null) {
       throw 'Error:  The sheet \"' + uniqueWeekofShipDatesToSyncToPrepay[i] + '\" does not exist in Prepay.';
-    } 
+    }
     var headersRange = sheet.getRange(prepayHeaderRowNum, prepayStartColNum, 1, prepayTotalColumns);
     var headers = headersRange.getValues()[0];
     prepayHeadersNames[uniqueWeekofShipDatesToSyncToPrepay[i]] = normalizeHeaders(headers);
@@ -476,7 +478,7 @@ function getAllDataFromPrepay(allDataFromSource, settings) {
 
 function syncSourceToTn(allDataFromSource, allDataFromTn, settings) {
   // Logger.log("**** Starting syncSourceToTn() ...");
-  // Initialize variables  
+  // Initialize variables
   var firstRowInTnWeekOfTab = {};
   var masterRecordsInTn = {};
   var numberOfRowsCopiedToTn = 0;
@@ -488,11 +490,11 @@ function syncSourceToTn(allDataFromSource, allDataFromTn, settings) {
   var tnTotalColumns = settings.tnEndColNum - tnStartColNum + 1;
   var objectRowsDataReadyToSyncToTn = allDataFromSource.objectRowsDataReadyToSyncToTn;
   var weekofShipDatesToSyncToTn = allDataFromSource.weekofShipDatesToSyncToTn;
-  var tnHeadersNames = allDataFromTn.tnHeadersNames;  
+  var tnHeadersNames = allDataFromTn.tnHeadersNames;
   var objectRowsTnData = allDataFromTn.objectRowsTnData;
-  
+
   var uniqueWeekofShipDatesToSyncToTn = weekofShipDatesToSyncToTn.getUnique();
-  
+
   for (i = 0; i < uniqueWeekofShipDatesToSyncToTn.length; i++) {
     masterRecordsInTn[uniqueWeekofShipDatesToSyncToTn[i]] = getArrayFromObject(objectRowsTnData[uniqueWeekofShipDatesToSyncToTn[i]], "masterRecord");  // >>>> NOTE BY ASSUMING INDEX 0 ALL HEADERS NEED TO BE IDENTICAL FOR TN SHEETS
   }
@@ -503,10 +505,10 @@ function syncSourceToTn(allDataFromSource, allDataFromTn, settings) {
       if (tnHeadersNames[weekofShipDatesToSyncToTn[0]][j] == "dateLastSynced") {
         tnData[0].push(d);
       } else if (tnHeadersNames[weekofShipDatesToSyncToTn[0]][j] in objectRowsDataReadyToSyncToTn[i]) {
-        tnData[0].push(objectRowsDataReadyToSyncToTn[i][tnHeadersNames[weekofShipDatesToSyncToTn[0]][j]]);  
+        tnData[0].push(objectRowsDataReadyToSyncToTn[i][tnHeadersNames[weekofShipDatesToSyncToTn[0]][j]]);
       } else {
         tnData[0].push("");
-      }    
+      }
     }
     var sheetTn = ssTn.getSheetByName(weekofShipDatesToSyncToTn[i]);
     if (!(weekofShipDatesToSyncToTn[i] in firstRowInTnWeekOfTab)) {
@@ -518,7 +520,7 @@ function syncSourceToTn(allDataFromSource, allDataFromTn, settings) {
     destinationRange.setValues(tnData);
     numberOfRowsCopiedToTn++;
     if (masterRecordsInTn[weekofShipDatesToSyncToTn[i]].indexOf(objectRowsDataReadyToSyncToTn[i]["masterRecord"]) > -1) {
-      destinationRange.setBackground('#ffff00');  
+      destinationRange.setBackground('#ffff00');
     }
     setDateLastSyncedInMaster(objectRowsDataReadyToSyncToTn[i]["masterRecord"], allDataFromSource, settings);
   }
@@ -534,11 +536,11 @@ function setDateLastSyncedInMaster(masterRecord, allDataFromSource, settings) {
   var masterRecordRowLocation = allDataFromSource.allMasterRecordsInSource.indexOf(masterRecord);
   var dateLastSyncedColLocation = sourceHeaderNames.indexOf("dateLastSynced");
   sheetMaster.getRange(masterRecordRowLocation + sourceStartRowNum, dateLastSyncedColLocation + sourceStartColNum, 1, 1).setValue(d);
-}  
+}
 
 function syncSourceToPrepay(allDataFromSource, allDataFromPrepay, settings) {
   // Logger.log("**** Starting syncSourceToPrepay() ...");
-  // Initialize variables  
+  // Initialize variables
   var firstRowInPrepayWeekOfTab = {};
   var numberOfRowsCopiedToPrepay = 0;
   var sheetMaster = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
@@ -550,7 +552,7 @@ function syncSourceToPrepay(allDataFromSource, allDataFromPrepay, settings) {
   var objectRowsDataReadyToSyncToPrepay = allDataFromSource.objectRowsDataReadyToSyncToPrepay;
   var weekofShipDatesToSyncToPrepay = allDataFromSource.weekofShipDatesToSyncToPrepay;
   var prepayHeadersNames = allDataFromPrepay.prepayHeadersNames;
-  
+
   // var objectRowsPrepayData = allDataFromPrepay.objectRowsPrepayData;
   // var masterRecordsInTn = getArrayFromObject(objectRowsTnData, "masterRecord");
 
@@ -561,10 +563,10 @@ function syncSourceToPrepay(allDataFromSource, allDataFromPrepay, settings) {
       if (prepayHeadersNames[weekofShipDatesToSyncToPrepay[0]][j] == "dateLastSynced") { // Prepay does not currently have this column, so this will be skipped
         prepayData[0].push(d);
       } else if (prepayHeadersNames[weekofShipDatesToSyncToPrepay[0]][j] in objectRowsDataReadyToSyncToPrepay[i]) {
-        prepayData[0].push(objectRowsDataReadyToSyncToPrepay[i][prepayHeadersNames[weekofShipDatesToSyncToPrepay[0]][j]]);  
+        prepayData[0].push(objectRowsDataReadyToSyncToPrepay[i][prepayHeadersNames[weekofShipDatesToSyncToPrepay[0]][j]]);
       } else {
         prepayData[0].push("");
-      }    
+      }
     }
     var sheetPrepay = ssPrepay.getSheetByName(weekofShipDatesToSyncToPrepay[i]);
     if (!(weekofShipDatesToSyncToPrepay[i] in firstRowInPrepayWeekOfTab)) {
@@ -585,19 +587,19 @@ function sendConfirmationEmail(allDataFromSource, trucksNeededUrl, prepayUrl, re
   *
   * This function sends a confirmation email with info about the loads that have been synced
   *
-  *****************************************************************************************************************/   
+  *****************************************************************************************************************/
   // Note quota limit of 1500 recipients / day per https://script.google.com/dashboard
   // Logger.log("**** sendConfirmationEmail() ...");
-    
+
   // Initialize variables
   var isPrepay = "";
   var isPrepayCount = 0;
   var emailTable = '<table width="600" style="border:1px solid #333"><tr><th>3CC #</th><th>Prepay?</th><th>Week of</th><th>Est Ship Date</th><th>Customer</th><th>Ship To</th><th>Vendor</th><th>Ship From</th></tr>';
   var objectRowsDataReadyToSyncToTn = allDataFromSource.objectRowsDataReadyToSyncToTn;
   var masterRecordsSyncedToTn = getArrayFromObject(objectRowsDataReadyToSyncToTn, "masterRecord");
-  
-  for (i = 0; i < objectRowsDataReadyToSyncToTn.length; i++) { 
-    if (isValidDate(objectRowsDataReadyToSyncToTn[i]["prepayDateRequestedForVendor"]) && isNumber(objectRowsDataReadyToSyncToTn[i]["prepayAmountForVendor"]))  { 
+
+  for (i = 0; i < objectRowsDataReadyToSyncToTn.length; i++) {
+    if (isValidDate(objectRowsDataReadyToSyncToTn[i]["prepayDateRequestedForVendor"]) && isNumber(objectRowsDataReadyToSyncToTn[i]["prepayAmountForVendor"]))  {
       isPrepay = "Yes";
       isPrepayCount++;
     } else {
@@ -608,14 +610,14 @@ function sendConfirmationEmail(allDataFromSource, trucksNeededUrl, prepayUrl, re
     } else {
       var estShipDateForEmail = objectRowsDataReadyToSyncToTn[i]["estimatedShipDate"];
     }
-    emailTable += ('<tr><td>' + objectRowsDataReadyToSyncToTn[i]["masterRecord"] + 
-                  '</td><td>' + isPrepay + 
-                  '</td><td>' + objectRowsDataReadyToSyncToTn[i]["weekOfShipDate"] + 
-                  '</td><td>' + estShipDateForEmail + 
-                  '</td><td>' + objectRowsDataReadyToSyncToTn[i]["customer"] +  
+    emailTable += ('<tr><td>' + objectRowsDataReadyToSyncToTn[i]["masterRecord"] +
+                  '</td><td>' + isPrepay +
+                  '</td><td>' + objectRowsDataReadyToSyncToTn[i]["weekOfShipDate"] +
+                  '</td><td>' + estShipDateForEmail +
+                  '</td><td>' + objectRowsDataReadyToSyncToTn[i]["customer"] +
                   '</td><td>' + objectRowsDataReadyToSyncToTn[i]["shipTo"] +
                   '</td><td>' + objectRowsDataReadyToSyncToTn[i]["vendor"] +
-                  '</td><td>' + objectRowsDataReadyToSyncToTn[i]["shipFrom"] + 
+                  '</td><td>' + objectRowsDataReadyToSyncToTn[i]["shipFrom"] +
                   '</td></tr>');
   }
   emailTable += '</table><p>Feel free to reply to this email with any questions for the trader.</p>';
@@ -634,14 +636,14 @@ function sendConfirmationEmail(allDataFromSource, trucksNeededUrl, prepayUrl, re
   } else {
     var emailTraderNotes = '<p>Additional notes from trader: ' + traderNotes + '</p>';
   }
-       
+
   //Generate the subject and body of the email
   var emailSubject = masterRecordsSyncedToTn.join(", ") + ' ready for review';
-  var emailBody = '<p>' + masterRecordsSyncedToTn.join(", ") + ' ready for review in the <a href="' + trucksNeededUrl + '">Trucks Needed Sheet</a>.' +  
-                  emailPrepay + 
-                  emailTruckScheduling + 
-                  emailTraderNotes + 
-                  '<p>The following loads were synced:</p>' + 
+  var emailBody = '<p>' + masterRecordsSyncedToTn.join(", ") + ' ready for review in the <a href="' + trucksNeededUrl + '">Trucks Needed Sheet</a>.' +
+                  emailPrepay +
+                  emailTruckScheduling +
+                  emailTraderNotes +
+                  '<p>The following loads were synced:</p>' +
                   emailTable;
   //Logger.log('emailTable = ' + emailTable);
   //Logger.log('emailBody = ' + emailBody);
@@ -668,16 +670,16 @@ function resetSyncToNo(allDataFromSource, settings) {
   range.setValue("No");
 }
 
-function updateShipDateWeekOfList(trucksNeededUrl, weekOfValidationStartRowNum, weekOfValidationStartColNum) {  
+function updateShipDateWeekOfList(trucksNeededUrl, weekOfValidationStartRowNum, weekOfValidationStartColNum) {
   var sheetNameArray = [];
   var tnSheets = SpreadsheetApp.openByUrl(trucksNeededUrl).getSheets();
   sheetNameArray = tnSheets
-    .filter(function(x) { 
+    .filter(function(x) {
       return !x.isSheetHidden();     // filter out any hidden sheets
     })
-    .map(function(y) {                                                                
-      return [y.getName()];   
-    });  
+    .map(function(y) {
+      return [y.getName()];
+    });
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Settings");
   sheet.getRange(weekOfValidationStartRowNum, weekOfValidationStartColNum, 100, 1).clearContent();         // Will clear up to 100 rows
   var range = sheet.getRange(weekOfValidationStartRowNum, weekOfValidationStartColNum, sheetNameArray.length, 1);
@@ -755,7 +757,7 @@ function copyTo(source, tn, cellColor) {
   tnRange.setValues(sourceData);
   if (cellColor != 'undefined') {
     tnRange.setBackgroundColor(cellColor);
-  } 
+  }
   // SpreadsheetApp.flush();
 }
 
@@ -787,13 +789,13 @@ function confirmTraderRequiredDataIsComplete(traderRequiredColumnNames, traderRe
       if (objectRowsData[i][traderRequiredColumnNames[j]] == "") {
         throw "The syncing load " + objectRowsData[i]["masterRecord"] + " is missing required data in the " + traderRequiredColumnsObject[traderRequiredColumnNames[j]] + " column";
       }
-    }   
+    }
   }
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
-// Sheet processing library functions from https://developers.google.com/apps-script/articles/mail_merge#section4 
+// Sheet processing library functions from https://developers.google.com/apps-script/articles/mail_merge#section4
 //
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
